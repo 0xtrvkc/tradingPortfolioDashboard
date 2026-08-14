@@ -5,22 +5,6 @@ A GitHub Actions workflow polls your XM account via MetaApi on a
 schedule and commits the result as JSON; GitHub Pages serves a static
 dashboard that reads those files directly.
 
-## Why the repo must be PRIVATE
-
-The committed `data/*.json` files contain your account balance,
-equity, and trade history. GitHub Secrets keep your credentials safe
-in a public repo, but the **output data itself would be public** if
-the repo is public. Two options:
-
-- **Private repo + GitHub Pro/Team/Enterprise** — private repos on
-  free personal accounts can't serve GitHub Pages.
-- **Private repo + Netlify or Vercel** (recommended for free accounts)
-  — both support deploying from a private GitHub repo on their free
-  tiers, and can auto-redeploy whenever the Actions workflow pushes
-  new data.
-
-Either way: **create this repo as Private** before pushing.
-
 ## Setup
 
 1. Create a new **private** GitHub repo and push this project to it.
