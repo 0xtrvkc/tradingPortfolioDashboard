@@ -1,0 +1,13 @@
+{
+  "name": "xm-dashboard-actions",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Serverless watch-only XM dashboard: GitHub Actions polls MetaApi, GitHub Pages serves the static result.",
+  "scripts": {
+    "poll": "node scripts/poll.js"
+  },
+  "dependencies": {
+    "metaapi.cloud-sdk": "^29.3.3"
+  }
+}

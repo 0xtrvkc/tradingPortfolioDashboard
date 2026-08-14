@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>XM Ledger — Watch-Only</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg: #14161A;
+    --panel: #1B1E24;
+    --panel-2: #20232B;
+    --line: #2A2E36;
+    --ink: #E8E6E1;
+    --ink-dim: #8B8F98;
+    --ink-faint: #5C6069;
+    --gold: #C9A227;
+    --up: #4F9D69;
+    --down: #C1502E;
+    --up-bg: rgba(79,157,105,0.12);
+    --down-bg: rgba(193,80,46,0.12);
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans Condensed", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono{ font-family: "IBM Plex Mono", "Courier New", monospace; }
+
+  header{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    padding: 22px 32px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  header h1{
+    margin:0;
+    font-size: 20px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  header h1 span{ color: var(--gold); }
+  #statusText{ font-size: 12px; color: var(--ink-dim); }
+
+  main{
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 28px 32px 80px;
+  }
+
+  .group-label{
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-weight: 600;
+    margin: 28px 0 8px 2px;
+  }
+  .group-label:first-of-type{ margin-top: 0; }
+
+  .stats{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+  }
+  .stat{
+    background: var(--panel);
+    padding: 16px 18px;
+  }
+  .stat .label{
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-bottom: 8px;
+    line-height: 1.3;
+  }
+  .stat .value{
+    font-size: 19px;
+    font-weight: 600;
+  }
+  .stat .sub{
+    font-size: 11px;
+    color: var(--ink-faint);
+    margin-top: 3px;
+  }
+  .stat .value.up{ color: var(--up); }
+  .stat .value.down{ color: var(--down); }
+
+  section{ margin-bottom: 34px; }
+  section h2{
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    font-weight: 600;
+    margin: 0 0 12px 2px;
+    display:flex;
+    align-items:center;
+    gap: 10px;
+  }
+  section h2::after{ content:""; flex:1; height:1px; background: var(--line); }
+
+  .chart-row{
+    display:grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 860px){ .chart-row{ grid-template-columns: 1fr; } }
+
+  .chart-wrap{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 18px;
+  }
+  .chart-wrap.short{ height: 140px; margin-top: 12px; }
+  .chart-wrap.mid{ height: 300px; }
+
+  table{
+    width:100%;
+    border-collapse: collapse;
+    background: var(--panel);
+    border: 1px solid var(--line);
+  }
+  th, td{
+    text-align:left;
+    padding: 10px 14px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--line);
+  }
+  th{
+    color: var(--ink-dim);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+  tr:last-child td{ border-bottom:none; }
+  td.num{ font-family: "IBM Plex Mono", monospace; text-align:right; }
+  td.pos{ color: var(--up); }
+  td.neg{ color: var(--down); }
+  .empty{
+    color: var(--ink-dim);
+    font-size: 13px;
+    padding: 24px;
+    text-align:center;
+    background: var(--panel);
+    border: 1px solid var(--line);
+  }
+
+  .sim-wrap{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 22px;
+  }
+  .sim-form{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  .field label{
+    display:block;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-bottom: 6px;
+  }
+  .field input{
+    width:100%;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    padding: 9px 10px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 14px;
+    border-radius: 2px;
+  }
+  .field input:focus{
+    outline:none;
+    border-color: var(--gold);
+  }
+
+  .rules{
+    display:flex;
+    flex-direction:column;
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+  }
+  .rule{
+    background: var(--panel-2);
+    display:grid;
+    grid-template-columns: 22px 1fr auto;
+    align-items:center;
+    gap: 14px;
+    padding: 13px 16px;
+  }
+  .rule .badge{
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .rule .badge.pass{ background: var(--up-bg); color: var(--up); }
+  .rule .badge.fail{ background: var(--down-bg); color: var(--down); }
+  .rule .badge.na{ background: rgba(139,143,152,0.12); color: var(--ink-dim); }
+  .rule .name{ font-size: 13px; }
+  .rule .name .detail{ display:block; font-size: 11.5px; color: var(--ink-dim); margin-top: 2px; }
+  .rule .figure{
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    text-align:right;
+    white-space: nowrap;
+  }
+  .rule .figure.pass{ color: var(--up); }
+  .rule .figure.fail{ color: var(--down); }
+
+  .sim-verdict{
+    margin-top: 16px;
+    padding: 14px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-align:center;
+    border: 1px solid var(--line);
+  }
+  .sim-verdict.pass{ background: var(--up-bg); color: var(--up); border-color: rgba(79,157,105,0.3); }
+  .sim-verdict.fail{ background: var(--down-bg); color: var(--down); border-color: rgba(193,80,46,0.3); }
+
+  .caveat{
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    margin-top: 14px;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>XM <span>Ledger</span></h1>
+  <span id="statusText">loading…</span>
+</header>
+
+<main>
+
+  <div class="group-label">Account</div>
+  <div class="stats" id="grp-account"></div>
+
+  <div class="group-label">Performance</div>
+  <div class="stats" id="grp-performance"></div>
+
+  <div class="group-label">Risk</div>
+  <div class="stats" id="grp-risk"></div>
+
+  <div class="group-label">Behavior</div>
+  <div class="stats" id="grp-behavior"></div>
+
+  <section>
+    <h2>Equity &amp; Drawdown</h2>
+    <div class="chart-row">
+      <div>
+        <div class="chart-wrap mid"><canvas id="equityChart"></canvas></div>
+        <div class="chart-wrap short"><canvas id="ddChart"></canvas></div>
+      </div>
+      <div class="chart-wrap mid"><canvas id="dailyChart"></canvas></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Prop Firm Challenge Simulator</h2>
+    <div class="sim-wrap">
+      <div class="sim-form">
+        <div class="field">
+          <label>Challenge balance</label>
+          <input type="number" id="sim-balance" value="10000" min="0" step="1000">
+        </div>
+        <div class="field">
+          <label>Profit target %</label>
+          <input type="number" id="sim-target" value="8" min="0" step="0.5">
+        </div>
+        <div class="field">
+          <label>Max total drawdown %</label>
+          <input type="number" id="sim-maxdd" value="10" min="0" step="0.5">
+        </div>
+        <div class="field">
+          <label>Max daily drawdown %</label>
+          <input type="number" id="sim-dailydd" value="5" min="0" step="0.5">
+        </div>
+        <div class="field">
+          <label>Min trading days</label>
+          <input type="number" id="sim-mindays" value="5" min="0" step="1">
+        </div>
+        <div class="field">
+          <label>Max risk per trade %</label>
+          <input type="number" id="sim-maxrisk" value="2" min="0" step="0.25">
+        </div>
+        <div class="field">
+          <label>Max single-day profit %</label>
+          <input type="number" id="sim-consistency" value="30" min="0" step="1">
+        </div>
+      </div>
+
+      <div class="rules" id="simRules"></div>
+      <div class="sim-verdict" id="simVerdict">Waiting for trade data…</div>
+
+      <div class="caveat">
+        Simulation replays your actual closed trades as percentage returns
+        against the challenge balance above — it does not use your real
+        dollar P/L directly, so the results scale to any balance you enter.
+        "Risk per trade" is approximated from realized losses (loss size ÷
+        account equity at the time), not your planned stop-loss distance,
+        since that isn't available from trade history alone. Daily drawdown
+        is approximated from net P/L per calendar day relative to that
+        day's starting equity, not intraday floating drawdown.
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>By Symbol</h2>
+    <div id="symbolWrap"><div class="empty">Loading…</div></div>
+  </section>
+
+  <section>
+    <h2>Open Positions</h2>
+    <div id="positionsWrap"><div class="empty">Loading…</div></div>
+  </section>
+
+  <section>
+    <h2>Recent Trades</h2>
+    <div id="tradesWrap"><div class="empty">Loading…</div></div>
+  </section>
+
+</main>
+
+<script>
+/* ============================================================
+   Data loading — static JSON committed by the GitHub Actions
+   poll job. No backend, no live sockets.
+   ============================================================ */
+
+function withBust(url) { return url + '?t=' + Date.now(); }
+
+async function fetchJSON(url, fallback) {
+  try {
+    const res = await fetch(withBust(url));
+    if (!res.ok) throw new Error(url + ' failed');
+    return await res.json();
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function fmt(n, decimals = 2) {
+  if (n === null || n === undefined || Number.isNaN(n)) return '—';
+  return Number(n).toLocaleString(undefined, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  });
+}
+function pct(n, decimals = 2) {
+  if (n === null || n === undefined || !isFinite(n)) return '—';
+  return fmt(n, decimals) + '%';
+}
+function money(n, decimals = 2) {
+  if (n === null || n === undefined || Number.isNaN(n)) return '—';
+  const sign = n < 0 ? '-' : '';
+  return sign + '$' + fmt(Math.abs(n), decimals);
+}
+
+/* ============================================================
+   Analytics engine — everything is derived from the closed
+   trade list plus the current account balance. Trades are
+   replayed in order to reconstruct a full equity curve, which
+   is more complete than the periodically-polled snapshot file
+   (that one only has history since the dashboard was set up).
+   ============================================================ */
+
+function analyze(trades, currentBalance) {
+  const sorted = [...trades].sort((a, b) => new Date(a.time) - new Date(b.time));
+  const totalProfit = sorted.reduce((s, t) => s + t.profit, 0);
+  const startingBalance = (currentBalance ?? totalProfit) - totalProfit;
+
+  let running = startingBalance;
+  let peak = startingBalance;
+  let maxDD = 0, maxDDPct = 0;
+  let wins = 0, losses = 0, grossProfit = 0, grossLoss = 0;
+  let winStreak = 0, maxWinStreak = 0, lossStreak = 0, maxLossStreak = 0;
+  let bestTrade = -Infinity, worstTrade = Infinity;
+  const equityPoints = [{ time: null, equity: startingBalance }];
+  const dailyPL = new Map();
+  const dailyStartEquity = new Map();
+  const symbolStats = new Map();
+  const lossPctSamples = [];
+
+  for (const t of sorted) {
+    const equityBefore = running;
+    running += t.profit;
+    equityPoints.push({ time: t.time, equity: running });
+    if (running > peak) peak = running;
+    const dd = peak - running;
+    const ddPct = peak > 0 ? (dd / peak) * 100 : 0;
+    if (dd > maxDD) maxDD = dd;
+    if (ddPct > maxDDPct) maxDDPct = ddPct;
+
+    if (t.profit >= 0) {
+      wins++; grossProfit += t.profit;
+      winStreak++; lossStreak = 0;
+      maxWinStreak = Math.max(maxWinStreak, winStreak);
+    } else {
+      losses++; grossLoss += Math.abs(t.profit);
+      lossStreak++; winStreak = 0;
+      maxLossStreak = Math.max(maxLossStreak, lossStreak);
+      if (equityBefore > 0) lossPctSamples.push((Math.abs(t.profit) / equityBefore) * 100);
+    }
+    bestTrade = Math.max(bestTrade, t.profit);
+    worstTrade = Math.min(worstTrade, t.profit);
+
+    const date = (t.time || '').slice(0, 10);
+    if (date) {
+      dailyPL.set(date, (dailyPL.get(date) || 0) + t.profit);
+      if (!dailyStartEquity.has(date)) dailyStartEquity.set(date, equityBefore);
+    }
+
+    const sym = symbolStats.get(t.symbol) || { trades: 0, wins: 0, profit: 0 };
+    sym.trades++;
+    if (t.profit >= 0) sym.wins++;
+    sym.profit += t.profit;
+    symbolStats.set(t.symbol, sym);
+  }
+
+  const totalTrades = sorted.length;
+  const winRate = totalTrades ? (wins / totalTrades) * 100 : null;
+  const avgWin = wins ? grossProfit / wins : null;
+  const avgLoss = losses ? grossLoss / losses : null;
+  const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : (grossProfit > 0 ? Infinity : null);
+  const expectancy = totalTrades ? (grossProfit - grossLoss) / totalTrades : null;
+
+  const dailyEntries = [...dailyPL.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  const tradingDays = dailyEntries.length;
+  let bestDay = null, worstDay = null, worstDailyDDPct = 0;
+  for (const [date, pl] of dailyEntries) {
+    if (bestDay === null || pl > bestDay) bestDay = pl;
+    if (worstDay === null || pl < worstDay) worstDay = pl;
+    const startEq = dailyStartEquity.get(date);
+    if (pl < 0 && startEq > 0) {
+      const ddp = (Math.abs(pl) / startEq) * 100;
+      if (ddp > worstDailyDDPct) worstDailyDDPct = ddp;
+    }
+  }
+  const bestDayPct = totalProfit > 0 && bestDay !== null ? (bestDay / totalProfit) * 100 : null;
+
+  const avgLossPct = lossPctSamples.length
+    ? lossPctSamples.reduce((s, v) => s + v, 0) / lossPctSamples.length
+    : null;
+  const maxLossPct = lossPctSamples.length ? Math.max(...lossPctSamples) : null;
+
+  const currentDD = peak > 0 ? ((peak - running) / peak) * 100 : 0;
+  const returnPct = startingBalance > 0 ? (totalProfit / startingBalance) * 100 : null;
+
+  const symbolBreakdown = [...symbolStats.entries()]
+    .map(([symbol, s]) => ({
+      symbol,
+      trades: s.trades,
+      winRate: (s.wins / s.trades) * 100,
+      profit: s.profit
+    }))
+    .sort((a, b) => b.profit - a.profit);
+
+  return {
+    startingBalance, totalProfit, totalTrades, wins, losses,
+    winRate, avgWin, avgLoss, profitFactor, expectancy,
+    bestTrade, worstTrade, maxWinStreak, maxLossStreak,
+    maxDD, maxDDPct, currentDD, returnPct,
+    tradingDays, bestDay, worstDay, bestDayPct, worstDailyDDPct,
+    avgLossPct, maxLossPct,
+    equityPoints, dailyEntries, symbolBreakdown
+  };
+}
+
+/* ============================================================
+   Charts
+   ============================================================ */
+
+let equityChart, ddChart, dailyChart;
+
+function initCharts() {
+  const axisColor = '#8B8F98';
+  const gridColor = '#2A2E36';
+
+  equityChart = new Chart(document.getElementById('equityChart').getContext('2d'), {
+    type: 'line',
+    data: { labels: [], datasets: [{
+      label: 'Equity', data: [],
+      borderColor: '#C9A227', backgroundColor: 'rgba(201,162,39,0.08)',
+      borderWidth: 1.5, pointRadius: 0, tension: 0.1, fill: true
+    }]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, title: {
+        display: true, text: 'Equity (reconstructed from trade history)',
+        color: axisColor, font: { size: 11 }, align: 'start', padding: { bottom: 10 }
+      }},
+      scales: {
+        x: { ticks: { color: axisColor, maxTicksLimit: 6 }, grid: { color: gridColor } },
+        y: { ticks: { color: axisColor }, grid: { color: gridColor } }
+      }
+    }
+  });
+
+  ddChart = new Chart(document.getElementById('ddChart').getContext('2d'), {
+    type: 'line',
+    data: { labels: [], datasets: [{
+      label: 'Drawdown %', data: [],
+      borderColor: '#C1502E', backgroundColor: 'rgba(193,80,46,0.15)',
+      borderWidth: 1, pointRadius: 0, tension: 0.1, fill: true
+    }]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, title: {
+        display: true, text: 'Drawdown %', color: axisColor,
+        font: { size: 11 }, align: 'start', padding: { bottom: 8 }
+      }},
+      scales: {
+        x: { display: false },
+        y: { reverse: true, ticks: { color: axisColor }, grid: { color: gridColor } }
+      }
+    }
+  });
+
+  dailyChart = new Chart(document.getElementById('dailyChart').getContext('2d'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ label: 'Daily P/L', data: [], backgroundColor: [] }]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, title: {
+        display: true, text: 'Daily P/L', color: axisColor,
+        font: { size: 11 }, align: 'start', padding: { bottom: 10 }
+      }},
+      scales: {
+        x: { ticks: { color: axisColor, maxTicksLimit: 8 }, grid: { display: false } },
+        y: { ticks: { color: axisColor }, grid: { color: gridColor } }
+      }
+    }
+  });
+}
+
+function renderCharts(stats) {
+  const eqLabels = stats.equityPoints.map(p => p.time ? new Date(p.time).toLocaleDateString() : 'start');
+  equityChart.data.labels = eqLabels;
+  equityChart.data.datasets[0].data = stats.equityPoints.map(p => p.equity);
+  equityChart.update('none');
+
+  let peak = stats.startingBalance;
+  const ddSeries = stats.equityPoints.map(p => {
+    if (p.equity > peak) peak = p.equity;
+    return peak > 0 ? ((peak - p.equity) / peak) * -100 : 0;
+  });
+  ddChart.data.labels = eqLabels;
+  ddChart.data.datasets[0].data = ddSeries;
+  ddChart.update('none');
+
+  const last30 = stats.dailyEntries.slice(-30);
+  dailyChart.data.labels = last30.map(([d]) => d.slice(5));
+  dailyChart.data.datasets[0].data = last30.map(([, v]) => v);
+  dailyChart.data.datasets[0].backgroundColor = last30.map(([, v]) => v >= 0 ? '#4F9D69' : '#C1502E');
+  dailyChart.update('none');
+}
+
+/* ============================================================
+   KPI tile rendering
+   ============================================================ */
+
+function tile(label, value, opts = {}) {
+  const cls = opts.dir === 'up' ? 'up' : opts.dir === 'down' ? 'down' : '';
+  const sub = opts.sub ? `<div class="sub">${opts.sub}</div>` : '';
+  return `<div class="stat"><div class="label">${label}</div><div class="value mono ${cls}">${value}</div>${sub}</div>`;
+}
+
+function renderKPIs(stats, currentBalance, currentEquity) {
+  document.getElementById('grp-account').innerHTML = [
+    tile('Balance', money(currentBalance)),
+    tile('Equity', money(currentEquity), { dir: currentEquity >= currentBalance ? 'up' : 'down' }),
+    tile('Net P/L (all trades)', money(stats.totalProfit), { dir: stats.totalProfit >= 0 ? 'up' : 'down' }),
+    tile('Return since start', pct(stats.returnPct), { dir: stats.returnPct >= 0 ? 'up' : 'down' })
+  ].join('');
+
+  document.getElementById('grp-performance').innerHTML = [
+    tile('Win Rate', pct(stats.winRate, 1)),
+    tile('Profit Factor', stats.profitFactor === Infinity ? '∞' : fmt(stats.profitFactor)),
+    tile('Expectancy / Trade', money(stats.expectancy)),
+    tile('Avg Win', money(stats.avgWin), { dir: 'up' }),
+    tile('Avg Loss', money(stats.avgLoss ? -stats.avgLoss : null), { dir: 'down' }),
+    tile('Best Trade', money(stats.bestTrade === -Infinity ? null : stats.bestTrade), { dir: 'up' }),
+    tile('Worst Trade', money(stats.worstTrade === Infinity ? null : stats.worstTrade), { dir: 'down' }),
+    tile('Total Trades', stats.totalTrades)
+  ].join('');
+
+  document.getElementById('grp-risk').innerHTML = [
+    tile('Max Drawdown', pct(stats.maxDDPct), { dir: 'down', sub: money(stats.maxDD) }),
+    tile('Current Drawdown', pct(stats.currentDD), { dir: stats.currentDD > 0 ? 'down' : '' }),
+    tile('Worst Daily Drawdown', pct(stats.worstDailyDDPct), { dir: 'down' }),
+    tile('Avg Realized Loss', pct(stats.avgLossPct), { sub: '% of equity at time' }),
+    tile('Largest Realized Loss', pct(stats.maxLossPct), { dir: 'down', sub: '% of equity at time' })
+  ].join('');
+
+  document.getElementById('grp-behavior').innerHTML = [
+    tile('Trading Days', stats.tradingDays),
+    tile('Longest Win Streak', stats.maxWinStreak),
+    tile('Longest Loss Streak', stats.maxLossStreak),
+    tile('Best Day', money(stats.bestDay), { dir: 'up' }),
+    tile('Worst Day', money(stats.worstDay), { dir: 'down' }),
+    tile('Best Day % of Profit', pct(stats.bestDayPct, 1), { sub: 'consistency — lower is steadier' })
+  ].join('');
+}
+
+function renderSymbols(stats) {
+  const wrap = document.getElementById('symbolWrap');
+  if (!stats.symbolBreakdown.length) {
+    wrap.innerHTML = '<div class="empty">No trade data yet.</div>';
+    return;
+  }
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>Symbol</th><th>Trades</th><th>Win Rate</th><th>Net P/L</th></tr></thead>
+      <tbody>
+        ${stats.symbolBreakdown.map(s => `
+          <tr>
+            <td>${s.symbol}</td>
+            <td class="num">${s.trades}</td>
+            <td class="num">${pct(s.winRate, 1)}</td>
+            <td class="num ${s.profit >= 0 ? 'pos' : 'neg'}">${money(s.profit)}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+/* ============================================================
+   Prop challenge simulator — rules are percentage-based, so the
+   actual trade history's percentage returns apply at any
+   hypothetical challenge balance without rescaling dollar P/L.
+   ============================================================ */
+
+function renderSimulator(stats) {
+  const balance = Number(document.getElementById('sim-balance').value) || 0;
+  const target = Number(document.getElementById('sim-target').value);
+  const maxDD = Number(document.getElementById('sim-maxdd').value);
+  const dailyDD = Number(document.getElementById('sim-dailydd').value);
+  const minDays = Number(document.getElementById('sim-mindays').value);
+  const maxRisk = Number(document.getElementById('sim-maxrisk').value);
+  const consistency = Number(document.getElementById('sim-consistency').value);
+
+  const rows = [];
+  let allPass = true;
+  let anyData = stats.totalTrades > 0;
+
+  function rule(name, detail, actualLabel, pass) {
+    if (pass === null) { rows.push({ name, detail, actualLabel, status: 'na' }); return; }
+    if (!pass) allPass = false;
+    rows.push({ name, detail, actualLabel, status: pass ? 'pass' : 'fail' });
+  }
+
+  const profitDollars = balance * ((stats.returnPct ?? 0) / 100);
+  rule(
+    'Profit target',
+    `Need \u2265 ${target}% (${money(balance * target / 100)})`,
+    `${pct(stats.returnPct, 2)} (${money(profitDollars)})`,
+    stats.returnPct === null ? null : stats.returnPct >= target
+  );
+
+  rule(
+    'Max total drawdown',
+    `Limit ${maxDD}%`,
+    pct(stats.maxDDPct, 2),
+    stats.maxDDPct <= maxDD
+  );
+
+  rule(
+    'Max daily drawdown',
+    `Limit ${dailyDD}%`,
+    pct(stats.worstDailyDDPct, 2),
+    stats.worstDailyDDPct <= dailyDD
+  );
+
+  rule(
+    'Minimum trading days',
+    `Need \u2265 ${minDays} days`,
+    `${stats.tradingDays} days`,
+    stats.tradingDays >= minDays
+  );
+
+  rule(
+    'Max risk per trade (realized)',
+    `Limit ${maxRisk}% \u2014 largest realized loss vs equity at time`,
+    stats.maxLossPct === null ? 'no losing trades yet' : pct(stats.maxLossPct, 2),
+    stats.maxLossPct === null ? null : stats.maxLossPct <= maxRisk
+  );
+
+  rule(
+    'Consistency (best day vs total profit)',
+    `Limit ${consistency}% of total profit from a single day`,
+    stats.bestDayPct === null ? 'no profit yet' : pct(stats.bestDayPct, 1),
+    stats.bestDayPct === null ? null : stats.bestDayPct <= consistency
+  );
+
+  document.getElementById('simRules').innerHTML = rows.map(r => `
+    <div class="rule">
+      <div class="badge ${r.status}">${r.status === 'pass' ? '\u2713' : r.status === 'fail' ? '\u2715' : '\u2013'}</div>
+      <div class="name">${r.name}<span class="detail">${r.detail}</span></div>
+      <div class="figure ${r.status === 'pass' ? 'pass' : r.status === 'fail' ? 'fail' : ''}">${r.actualLabel}</div>
+    </div>
+  `).join('');
+
+  const verdictEl = document.getElementById('simVerdict');
+  if (!anyData) {
+    verdictEl.className = 'sim-verdict';
+    verdictEl.textContent = 'Waiting for trade data…';
+  } else {
+    verdictEl.className = 'sim-verdict ' + (allPass ? 'pass' : 'fail');
+    verdictEl.textContent = allPass
+      ? 'Would pass this challenge based on trade history so far'
+      : 'Would fail this challenge \u2014 one or more rules breached';
+  }
+}
+
+function wireSimulator(stats) {
+  document.querySelectorAll('#sim-balance,#sim-target,#sim-maxdd,#sim-dailydd,#sim-mindays,#sim-maxrisk,#sim-consistency')
+    .forEach(el => el.addEventListener('input', () => renderSimulator(stats)));
+}
+
+/* ============================================================
+   Load + render everything
+   ============================================================ */
+
+async function loadAll() {
+  const summary = await fetchJSON('data/summary.json', {});
+  const { trades = [] } = await fetchJSON('data/trades.json', { trades: [] });
+  const { positions = [] } = await fetchJSON('data/positions.json', { positions: [] });
+
+  document.getElementById('statusText').textContent = summary.lastUpdated
+    ? 'last updated ' + new Date(summary.lastUpdated).toLocaleString()
+    : 'no data yet';
+
+  const stats = analyze(trades, summary.equity ?? summary.balance ?? 0);
+
+  renderKPIs(stats, summary.balance, summary.equity);
+  renderCharts(stats);
+  renderSymbols(stats);
+  renderSimulator(stats);
+  wireSimulator(stats);
+
+  const posWrap = document.getElementById('positionsWrap');
+  if (!positions.length) {
+    posWrap.innerHTML = '<div class="empty">No open positions.</div>';
+  } else {
+    posWrap.innerHTML = `
+      <table>
+        <thead><tr>
+          <th>Symbol</th><th>Type</th><th>Volume</th>
+          <th>Open Price</th><th>Current</th><th>P/L</th>
+        </tr></thead>
+        <tbody>
+          ${positions.map(p => `
+            <tr>
+              <td>${p.symbol}</td>
+              <td>${p.type.replace('POSITION_TYPE_', '')}</td>
+              <td class="num">${fmt(p.volume, 2)}</td>
+              <td class="num">${fmt(p.openPrice, 5)}</td>
+              <td class="num">${fmt(p.currentPrice, 5)}</td>
+              <td class="num ${p.profit >= 0 ? 'pos' : 'neg'}">${money(p.profit)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  const tradesWrap = document.getElementById('tradesWrap');
+  if (!trades.length) {
+    tradesWrap.innerHTML = '<div class="empty">No trades in range.</div>';
+  } else {
+    const sortedDesc = [...trades].sort((a, b) => new Date(b.time) - new Date(a.time));
+    tradesWrap.innerHTML = `
+      <table>
+        <thead><tr>
+          <th>Time</th><th>Symbol</th><th>Type</th>
+          <th>Volume</th><th>Price</th><th>P/L</th>
+        </tr></thead>
+        <tbody>
+          ${sortedDesc.slice(0, 40).map(t => `
+            <tr>
+              <td>${new Date(t.time).toLocaleString()}</td>
+              <td>${t.symbol}</td>
+              <td>${t.type.replace('DEAL_TYPE_', '')}</td>
+              <td class="num">${fmt(t.volume, 2)}</td>
+              <td class="num">${fmt(t.price, 5)}</td>
+              <td class="num ${t.profit >= 0 ? 'pos' : 'neg'}">${money(t.profit)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+}
+
+initCharts();
+loadAll();
+setInterval(loadAll, 5 * 60 * 1000);
+</script>
+
+</body>
+</html>
