@@ -47,7 +47,7 @@ async function main() {
 
   // Reuse the account if it already exists in your MetaApi project,
   // otherwise provision it (idempotent — safe to run every time).
-  const accounts = await api.metatraderAccountApi.getAccounts();
+  const accounts = await api.metatraderAccountApi.getAccountsWithInfiniteScrollPagination();
   let account = accounts.find(
     (a) => a.login === XM_LOGIN && a.server === XM_SERVER
   );
