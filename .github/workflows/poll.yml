@@ -1,0 +1,40 @@
+name: Poll XM Account
+
+on:
+  schedule:
+    # Every 15 minutes. GitHub's practical floor for scheduled runs
+    # is ~5 min, and free-tier runners can lag under load — 15 is a
+    # reliable, quota-friendly choice for a watch-only dashboard.
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}   # lets you trigger a run manually from the Actions tab
+
+permissions:
+  contents: write   # needed so the workflow can commit updated data files
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm install
+
+      - name: Poll XM account via MetaApi
+        env:
+          METAAPI_TOKEN: ${{ secrets.METAAPI_TOKEN }}
+          XM_LOGIN: ${{ secrets.XM_LOGIN }}
+          XM_INVESTOR_PASSWORD: ${{ secrets.XM_INVESTOR_PASSWORD }}
+          XM_SERVER: ${{ secrets.XM_SERVER }}
+        run: node scripts/poll.js
+
+      - name: Commit updated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/*.json
+          git diff --staged --quiet || git commit -m "Update account data [skip ci]"
+          git push
