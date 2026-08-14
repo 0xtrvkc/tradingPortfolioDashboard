@@ -9,7 +9,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import MetaApi from 'metaapi.cloud-sdk';
+import MetaApi from 'metaapi.cloud-sdk/esm-node';
 
 const {
   METAAPI_TOKEN,
